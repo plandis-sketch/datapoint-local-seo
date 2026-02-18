@@ -1,0 +1,16 @@
+{
+  "name": "data-point-local-seo",
+  "version": "1.0.0",
+  "description": "Local SEO Command Center for Data Point Marketing",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^21.6.1",
+    "axios": "^1.6.2",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}

@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: datapoint-local-seo
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: GOOGLE_PLACES_API_KEY
+        value: AIzaSyDLlwetJYSLaHVmdbqRUVIxQjtDSlDs2kk
+    healthCheckPath: /

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Data Point Tools Launcher</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0a; color: #fff; padding: 40px 20px; max-width: 600px; margin: 0 auto; }
+    h1 { text-align: center; margin-bottom: 10px; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 40px; }
+    .tool { background: linear-gradient(135deg, #1a1a1a, #2a2a2a); border: 1px solid #333; border-radius: 16px; padding: 24px; margin: 20px 0; cursor: pointer; transition: all 0.2s; }
+    .tool:hover { border-color: #667eea; transform: translateY(-2px); }
+    .tool-header { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+    .icon { font-size: 32px; width: 60px; height: 60px; background: #333; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+    .tool-title { font-size: 20px; font-weight: 600; }
+    .tool-desc { color: #888; font-size: 14px; line-height: 1.5; }
+    .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; margin-top: 12px; }
+    .status.online { background: #1a3a1a; color: #4ade80; }
+    .status.setup { background: #3a2a1a; color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <h1>🚀 Data Point Tools</h1>
+  <p class="subtitle">Quick access to your automation systems</p>
+  
+  <a href="/api/redirect?to=seo" style="text-decoration: none; color: inherit;">
+    <div class="tool">
+      <div class="tool-header">
+        <div class="icon">🚀</div>
+        <div>
+          <div class="tool-title">Local SEO Analyzer</div>
+        </div>
+      </div>
+      <p class="tool-desc">Analyze client websites for local SEO. Check GBP, NAP consistency, schema markup, and get actionable fixes.</p>
+      <span class="status online">● Online</span>
+    </div>
+  </a>
+  
+  <a href="/api/redirect?to=str" style="text-decoration: none; color: inherit;">
+    <div class="tool">
+      <div class="tool-header">
+        <div class="icon">🏠</div>
+        <div>
+          <div class="tool-title">STR Automation</div>
+        </div>
+      </div>
+      <p class="tool-desc">Auto-fill HOA rental forms for Skipping Stone Lodge & The Plaidwood. Syncs with Hospitable bookings.</p>
+      <span class="status online">● Online</span>
+    </div>
+  </a>
+
+  <script>
+    // Auto-check status
+    fetch('/api/status').then(r => r.json()).then(data => {
+      console.log('Status:', data);
+    });
+  </script>
+</body>
+</html>
