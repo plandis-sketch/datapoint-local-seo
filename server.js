@@ -2,11 +2,14 @@ const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 3460;
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 class LocalSEOAnalyzer {
   async analyzeWebsite(url, businessName, location) {
@@ -183,6 +186,10 @@ app.get('/api/analyze', async (req, res) => {
   const analyzer = new LocalSEOAnalyzer();
   const results = await analyzer.analyzeWebsite(url, businessName, location);
   res.json(results);
+});
+
+app.get('/privacy-policy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
 });
 
 app.get('/', (req, res) => {
