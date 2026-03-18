@@ -18,6 +18,7 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 // --- Load .env ---
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -67,8 +68,11 @@ function calculatePoints(position, status, cutPlayerCount) {
 }
 
 function normalizeName(name) {
-  // Normalize for fuzzy matching: lowercase, strip accents, extra spaces
+  // Normalize for fuzzy matching: lowercase, strip accents/special chars
   return name
+    .replace(/ø/g, 'o').replace(/Ø/g, 'o')  // Handle Nordic ø (NFD doesn't decompose it)
+    .replace(/æ/g, 'ae').replace(/Æ/g, 'ae')
+    .replace(/ñ/g, 'n').replace(/Ñ/g, 'n')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
@@ -145,15 +149,21 @@ async function scrapeAndUpdate() {
   });
   console.log(`Roster: ${allGolfers.length} golfers across ${tiersSnap.docs.length} tiers`);
 
-  // 4. Fetch ESPN API
+  // 4. Fetch ESPN API (try fetch first, fall back to curl)
   let espnData;
   try {
     const resp = await fetch(ESPN_API);
     if (!resp.ok) throw new Error(`ESPN API returned ${resp.status}`);
     espnData = await resp.json();
-  } catch (err) {
-    console.error('Failed to fetch ESPN:', err.message);
-    return;
+  } catch {
+    // Fallback: use curl (works in some environments where fetch is blocked)
+    try {
+      const raw = execSync(`curl -s "${ESPN_API}"`, { timeout: 15000 }).toString();
+      espnData = JSON.parse(raw);
+    } catch (err2) {
+      console.error('Failed to fetch ESPN via both fetch and curl:', err2.message);
+      return;
+    }
   }
 
   // 5. Find the Valspar tournament in ESPN data
@@ -184,62 +194,116 @@ async function scrapeAndUpdate() {
   const competitors = competition.competitors || [];
   console.log(`ESPN has ${competitors.length} competitors`);
 
-  // Determine current round from ESPN
-  const espnStatus = event.status || {};
-  const espnRound = espnStatus.period || tournament.currentRound;
+  // Check if tournament has started
+  const eventStatus = event.status || {};
+  const eventState = eventStatus.type?.state || 'pre'; // "pre", "in", "post"
+  console.log(`Event state: ${eventState} (${eventStatus.type?.description || '?'})`);
 
-  // Determine cut info
+  if (eventState === 'pre') {
+    console.log('Tournament hasn\'t started yet. Scores will populate once play begins.');
+    // Still do name matching check so we can verify before Thursday
+    let matchCount = 0;
+    for (const competitor of competitors) {
+      const name = competitor.athlete?.displayName || competitor.athlete?.fullName || '';
+      if (name && findBestMatch(name, allGolfers)) matchCount++;
+    }
+    console.log(`Pre-check: ${matchCount}/${allGolfers.length} of our golfers found in ESPN field`);
+    const missing = allGolfers.filter(g => {
+      return !competitors.some(c => {
+        const name = c.athlete?.displayName || c.athlete?.fullName || '';
+        return findBestMatch(name, [g]);
+      });
+    });
+    if (missing.length > 0) {
+      console.log('Missing from ESPN field:');
+      missing.forEach(g => console.log(`  - ${g.name}`));
+    }
+    return;
+  }
+
+  // Determine current round from ESPN
+  const espnRound = eventStatus.period || tournament.currentRound;
+
+  // Determine cut info — count golfers without CUT/WD status
   let cutPlayerCount = tournament.cutPlayerCount;
-  const activeCount = competitors.filter(c => {
-    const pos = c.status?.position?.displayName || '';
-    return pos !== 'CUT' && pos !== 'MC' && pos !== 'WD' && pos !== 'DQ';
-  }).length;
+  const activeCompetitors = competitors.filter(c => {
+    const s = (c.status?.displayValue || '').toUpperCase();
+    return s !== 'CUT' && s !== 'MC' && s !== 'WD' && s !== 'DQ';
+  });
 
   // 7. Match ESPN golfers to our roster and update scores
   let matched = 0;
-  let unmatched = 0;
 
   for (const competitor of competitors) {
     const athlete = competitor.athlete || {};
-    const espnName = athlete.displayName || athlete.shortName || '';
+    const espnName = athlete.displayName || athlete.fullName || '';
     if (!espnName) continue;
 
     // Find matching golfer in our roster
     const golfer = findBestMatch(espnName, allGolfers);
-    if (!golfer) {
-      // Not in our pool — skip (many ESPN golfers won't be in our 60)
-      continue;
-    }
+    if (!golfer) continue; // Not in our pool — skip
+
+    // ESPN API data structure (confirmed from live API):
+    // - competitor.score = string like "-5", "E", "+3"
+    // - competitor.order = sort position (1-based)
+    // - competitor.status.position.id = numeric position
+    // - competitor.status.position.displayName = "T3", "1", "CUT", "WD"
+    // - competitor.status.displayValue = "F", "-2" (today's score or status)
+    // - competitor.status.thru = holes completed (number)
+    // - competitor.linescores[].value = round score (number)
 
     // Parse position & status
     const posDisplay = competitor.status?.position?.displayName ||
-                       competitor.sortOrder?.toString() || '';
+                       competitor.status?.displayValue || '';
     const { position, status } = parsePosition(posDisplay);
 
-    // Score data
-    const scoreToPar = competitor.score?.displayValue || 'E';
-    const today = competitor.status?.displayValue || '--';
-    const thru = competitor.status?.thru?.toString() || competitor.status?.displayValue || '--';
+    // Score to par (main tournament score)
+    const scoreToPar = typeof competitor.score === 'string'
+      ? competitor.score
+      : competitor.score?.displayValue || 'E';
 
-    // Round scores
+    // Today / Thru parsing
+    let today = '--';
+    let thru = '--';
+
+    if (competitor.status?.thru !== undefined && competitor.status?.thru !== null) {
+      thru = competitor.status.thru.toString();
+      if (thru === '18' || thru === '0' && status !== 'active') thru = 'F';
+    }
+    if (competitor.status?.displayValue) {
+      const dv = competitor.status.displayValue;
+      // displayValue can be "F", "-2", "CUT", "WD", etc.
+      if (dv === 'F' || dv === 'CUT' || dv === 'WD' || dv === 'MC' || dv === 'DQ') {
+        thru = 'F';
+        // Today's score comes from the current round's linescore
+        const currentRoundLS = (competitor.linescores || []).find(ls => ls.period === espnRound);
+        today = currentRoundLS?.displayValue || currentRoundLS?.value?.toString() || '--';
+      } else {
+        today = dv;
+      }
+    }
+
+    // Round scores from linescores array
     const roundScores = { r1: null, r2: null, r3: null, r4: null };
     const linescores = competitor.linescores || [];
-    linescores.forEach((ls, idx) => {
-      if (idx < 4 && ls.value !== undefined) {
-        roundScores[`r${idx + 1}`] = ls.value;
+    for (const ls of linescores) {
+      const period = ls.period;
+      if (period >= 1 && period <= 4 && ls.value !== undefined) {
+        roundScores[`r${period}`] = ls.value;
       }
-    });
+    }
 
     // Calculate points
-    const points = calculatePoints(position, status, cutPlayerCount || activeCount);
+    const effectiveCutCount = cutPlayerCount || activeCompetitors.length || 65;
+    const points = calculatePoints(position, status, effectiveCutCount);
 
     // Write to Firestore
     await setDoc(doc(db, 'tournaments', tournament.id, 'golferScores', golfer.id), {
       name: golfer.name,
       position,
       score: scoreToPar,
-      today: thru === 'F' || thru === '18' ? today : today,
-      thru: thru === '0' ? '--' : thru,
+      today,
+      thru,
       status,
       points,
       roundScores,
@@ -257,12 +321,20 @@ async function scrapeAndUpdate() {
     console.log(`Updated current round to ${espnRound}`);
   }
 
-  // Update cutPlayerCount if we detected it
-  if (activeCount > 0 && espnRound >= 3 && !tournament.cutPlayerCount) {
+  // Update cutPlayerCount after the cut (round 3+)
+  if (activeCompetitors.length > 0 && espnRound >= 3 && !tournament.cutPlayerCount) {
     await updateDoc(doc(db, 'tournaments', tournament.id), {
-      cutPlayerCount: activeCount,
+      cutPlayerCount: activeCompetitors.length,
     });
-    console.log(`Set cut player count to ${activeCount}`);
+    console.log(`Set cut player count to ${activeCompetitors.length}`);
+  }
+
+  // Check if tournament is complete
+  if (eventState === 'post' && tournament.status !== 'complete') {
+    await updateDoc(doc(db, 'tournaments', tournament.id), {
+      status: 'complete',
+    });
+    console.log('Tournament complete!');
   }
 
   console.log(`Updated ${matched} golfer scores (${competitors.length - matched} ESPN golfers not in our pool)`);
