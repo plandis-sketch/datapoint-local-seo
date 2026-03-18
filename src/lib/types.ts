@@ -62,6 +62,7 @@ export interface GolferScore {
     r3: number | null;
     r4: number | null;
   };
+  teeTime: Timestamp | null;
   lastUpdated: Timestamp;
   source: 'scrape' | 'manual';
 }
@@ -83,6 +84,17 @@ export interface Entry {
   totalScore: number;
   paid: boolean;
   submittedAt: Timestamp;
+}
+
+export interface WithdrawalAlert {
+  id: string;
+  golferId: string;
+  golferName: string;
+  tierNumber: number;
+  affectedEntryIds: string[];
+  swapDeadline: Timestamp;
+  status: 'active' | 'resolved';
+  createdAt: Timestamp;
 }
 
 export interface DailyStanding {

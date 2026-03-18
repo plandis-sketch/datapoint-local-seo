@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useTournament, useTiers, useGolferScores, useEntries } from '../hooks/useTournament';
+import { useTournament, useTiers, useGolferScores, useEntries, useWithdrawalAlerts } from '../hooks/useTournament';
 import TierBadge from '../components/common/TierBadge';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,7 +10,20 @@ export default function MyEntries() {
   const { tiers } = useTiers(tournament?.id);
   const { scores } = useGolferScores(tournament?.id);
   const { entries } = useEntries(tournament?.id);
+  const { alerts } = useWithdrawalAlerts(tournament?.id);
   const navigate = useNavigate();
+
+  // Find active withdrawal alerts affecting this user's entries
+  const myAlerts = useMemo(() => {
+    if (!user) return [];
+    const myEntryIds = entries.filter((e) => e.userId === user.uid).map((e) => e.id);
+    return alerts
+      .filter((a) => a.status === 'active' && a.affectedEntryIds.some((id) => myEntryIds.includes(id)))
+      .filter((a) => {
+        const deadline = a.swapDeadline?.toDate?.() ? a.swapDeadline.toDate() : new Date(a.swapDeadline as any);
+        return deadline.getTime() > Date.now();
+      });
+  }, [alerts, entries, user]);
 
   const scoreMap = useMemo(() => {
     const map = new Map<string, { points: number; score: string; position: number | null }>();
@@ -68,6 +81,30 @@ export default function MyEntries() {
           </button>
         )}
       </div>
+
+      {myAlerts.map((alert) => (
+        <div key={alert.id} className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-start gap-3">
+              <span className="text-xl">&#9888;&#65039;</span>
+              <div>
+                <p className="font-bold text-amber-900">
+                  {alert.golferName} (Tier {alert.tierNumber}) has withdrawn
+                </p>
+                <p className="text-amber-700 text-sm mt-0.5">
+                  You have an affected entry — swap your pick before tee times start.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate(`/swap/${alert.id}`)}
+              className="bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-amber-600 transition whitespace-nowrap"
+            >
+              Swap Pick
+            </button>
+          </div>
+        </div>
+      ))}
 
       {myEntries.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl shadow-sm">

@@ -12,7 +12,7 @@
 
 import { initializeApp } from 'firebase/app';
 import {
-  getFirestore, collection, doc, setDoc, getDocs, updateDoc,
+  getFirestore, collection, doc, setDoc, getDocs, getDoc, updateDoc, addDoc,
   query, orderBy, Timestamp
 } from 'firebase/firestore';
 import { readFileSync } from 'fs';
@@ -138,16 +138,41 @@ async function scrapeAndUpdate() {
     console.log('Picks locked. Status set to in_progress.');
   }
 
-  // 3. Get all tier golfers from Firestore (our roster)
+  // 3. Get all tier golfers from Firestore (our roster) + tier mapping
   const tiersSnap = await getDocs(
     query(collection(db, 'tournaments', tournament.id, 'tiers'), orderBy('tierNumber'))
   );
   const allGolfers = [];
+  const golferToTier = new Map(); // golferId -> tierNumber
   tiersSnap.docs.forEach(d => {
     const tier = d.data();
-    tier.golfers.forEach(g => allGolfers.push(g));
+    tier.golfers.forEach(g => {
+      allGolfers.push(g);
+      golferToTier.set(g.id, tier.tierNumber);
+    });
   });
   console.log(`Roster: ${allGolfers.length} golfers across ${tiersSnap.docs.length} tiers`);
+
+  // 3b. Read existing golfer scores (for withdrawal detection)
+  const existingScoresSnap = await getDocs(
+    collection(db, 'tournaments', tournament.id, 'golferScores')
+  );
+  const existingScores = new Map();
+  existingScoresSnap.docs.forEach(d => existingScores.set(d.id, d.data()));
+
+  // 3c. Read existing entries (for finding affected users on withdrawal)
+  const entriesSnap = await getDocs(
+    collection(db, 'tournaments', tournament.id, 'entries')
+  );
+  const allEntries = entriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // 3d. Read existing withdrawal alerts (to avoid duplicates)
+  const alertsSnap = await getDocs(
+    collection(db, 'tournaments', tournament.id, 'withdrawalAlerts')
+  );
+  const existingAlertGolferIds = new Set(
+    alertsSnap.docs.map(d => d.data().golferId)
+  );
 
   // 4. Fetch ESPN API (try fetch first, fall back to curl)
   let espnData;
@@ -201,22 +226,68 @@ async function scrapeAndUpdate() {
 
   if (eventState === 'pre') {
     console.log('Tournament hasn\'t started yet. Scores will populate once play begins.');
-    // Still do name matching check so we can verify before Thursday
+    // Name matching check
     let matchCount = 0;
+    const espnNames = new Set();
     for (const competitor of competitors) {
       const name = competitor.athlete?.displayName || competitor.athlete?.fullName || '';
+      if (name) espnNames.add(name);
       if (name && findBestMatch(name, allGolfers)) matchCount++;
     }
     console.log(`Pre-check: ${matchCount}/${allGolfers.length} of our golfers found in ESPN field`);
-    const missing = allGolfers.filter(g => {
+
+    // Check for pre-tournament withdrawals (golfer in our pool but dropped from ESPN field)
+    const missingGolfers = allGolfers.filter(g => {
       return !competitors.some(c => {
         const name = c.athlete?.displayName || c.athlete?.fullName || '';
         return findBestMatch(name, [g]);
       });
     });
-    if (missing.length > 0) {
-      console.log('Missing from ESPN field:');
-      missing.forEach(g => console.log(`  - ${g.name}`));
+    if (missingGolfers.length > 0) {
+      console.log('Missing from ESPN field (possible pre-tournament WD):');
+      for (const g of missingGolfers) {
+        console.log(`  - ${g.name}`);
+        // Create WD alert if not already created and entries exist
+        if (!existingAlertGolferIds.has(g.id)) {
+          const tierNumber = golferToTier.get(g.id);
+          const tierKey = `tier${tierNumber}`;
+          const affected = allEntries.filter(e => e.picks?.[tierKey] === g.id).map(e => e.id);
+          if (affected.length > 0) {
+            // Deadline = firstTeeTime (swap before tournament starts)
+            const deadline = tournament.firstTeeTime?.toDate?.()
+              ? tournament.firstTeeTime.toDate()
+              : new Date(tournament.firstTeeTime);
+            await addDoc(
+              collection(db, 'tournaments', tournament.id, 'withdrawalAlerts'),
+              {
+                golferId: g.id,
+                golferName: g.name,
+                tierNumber,
+                affectedEntryIds: affected,
+                swapDeadline: Timestamp.fromDate(deadline),
+                status: 'active',
+                createdAt: Timestamp.now(),
+              }
+            );
+            // Also mark them as withdrawn in golferScores
+            await setDoc(doc(db, 'tournaments', tournament.id, 'golferScores', g.id), {
+              name: g.name,
+              position: null,
+              score: '--',
+              today: '--',
+              thru: '--',
+              status: 'withdrawn',
+              points: 999,
+              roundScores: { r1: null, r2: null, r3: null, r4: null },
+              teeTime: null,
+              lastUpdated: Timestamp.now(),
+              source: 'scrape',
+            });
+            const names = allEntries.filter(e => affected.includes(e.id)).map(e => e.participantName);
+            console.log(`    PRE-TOURNAMENT WD ALERT: ${affected.length} entries affected (${names.join(', ')})`);
+          }
+        }
+      }
     }
     return;
   }
@@ -231,8 +302,21 @@ async function scrapeAndUpdate() {
     return s !== 'CUT' && s !== 'MC' && s !== 'WD' && s !== 'DQ';
   });
 
-  // 7. Match ESPN golfers to our roster and update scores
+  // 7. Build ESPN tee time map (competitor ID -> tee time)
+  // ESPN provides tee times in competitor.status.teeTime or competition.startDate
+  const espnTeeTimeMap = new Map(); // espnName -> teeTime Date
+  for (const competitor of competitors) {
+    const name = competitor.athlete?.displayName || competitor.athlete?.fullName || '';
+    // ESPN sometimes provides teeTime in status or as startDate
+    const teeTimeStr = competitor.status?.teeTime || competitor.teeTime;
+    if (teeTimeStr) {
+      espnTeeTimeMap.set(name, new Date(teeTimeStr));
+    }
+  }
+
+  // 8. Match ESPN golfers to our roster and update scores
   let matched = 0;
+  const newWithdrawals = []; // Track new WDs this cycle
 
   for (const competitor of competitors) {
     const athlete = competitor.athlete || {};
@@ -243,19 +327,16 @@ async function scrapeAndUpdate() {
     const golfer = findBestMatch(espnName, allGolfers);
     if (!golfer) continue; // Not in our pool — skip
 
-    // ESPN API data structure (confirmed from live API):
-    // - competitor.score = string like "-5", "E", "+3"
-    // - competitor.order = sort position (1-based)
-    // - competitor.status.position.id = numeric position
-    // - competitor.status.position.displayName = "T3", "1", "CUT", "WD"
-    // - competitor.status.displayValue = "F", "-2" (today's score or status)
-    // - competitor.status.thru = holes completed (number)
-    // - competitor.linescores[].value = round score (number)
-
     // Parse position & status
     const posDisplay = competitor.status?.position?.displayName ||
                        competitor.status?.displayValue || '';
     const { position, status } = parsePosition(posDisplay);
+
+    // Detect new withdrawal
+    const prevScore = existingScores.get(golfer.id);
+    if (status === 'withdrawn' && prevScore?.status !== 'withdrawn') {
+      newWithdrawals.push(golfer);
+    }
 
     // Score to par (main tournament score)
     const scoreToPar = typeof competitor.score === 'string'
@@ -268,14 +349,12 @@ async function scrapeAndUpdate() {
 
     if (competitor.status?.thru !== undefined && competitor.status?.thru !== null) {
       thru = competitor.status.thru.toString();
-      if (thru === '18' || thru === '0' && status !== 'active') thru = 'F';
+      if (thru === '18' || (thru === '0' && status !== 'active')) thru = 'F';
     }
     if (competitor.status?.displayValue) {
       const dv = competitor.status.displayValue;
-      // displayValue can be "F", "-2", "CUT", "WD", etc.
       if (dv === 'F' || dv === 'CUT' || dv === 'WD' || dv === 'MC' || dv === 'DQ') {
         thru = 'F';
-        // Today's score comes from the current round's linescore
         const currentRoundLS = (competitor.linescores || []).find(ls => ls.period === espnRound);
         today = currentRoundLS?.displayValue || currentRoundLS?.value?.toString() || '--';
       } else {
@@ -293,6 +372,10 @@ async function scrapeAndUpdate() {
       }
     }
 
+    // Tee time
+    const teeTimeDate = espnTeeTimeMap.get(espnName);
+    const teeTime = teeTimeDate ? Timestamp.fromDate(teeTimeDate) : (prevScore?.teeTime || null);
+
     // Calculate points
     const effectiveCutCount = cutPlayerCount || activeCompetitors.length || 65;
     const points = calculatePoints(position, status, effectiveCutCount);
@@ -307,10 +390,78 @@ async function scrapeAndUpdate() {
       status,
       points,
       roundScores,
+      teeTime,
       lastUpdated: Timestamp.now(),
       source: 'scrape',
     });
     matched++;
+  }
+
+  // 9. Process new withdrawals — create alerts for affected users
+  for (const golfer of newWithdrawals) {
+    // Skip if we already have an alert for this golfer
+    if (existingAlertGolferIds.has(golfer.id)) {
+      console.log(`  Withdrawal alert already exists for ${golfer.name}, skipping.`);
+      continue;
+    }
+
+    const tierNumber = golferToTier.get(golfer.id);
+    if (!tierNumber) continue;
+
+    // Find all entries that picked this golfer
+    const tierKey = `tier${tierNumber}`;
+    const affectedEntryIds = allEntries
+      .filter(e => e.picks?.[tierKey] === golfer.id)
+      .map(e => e.id);
+
+    if (affectedEntryIds.length === 0) {
+      console.log(`  ${golfer.name} withdrew but nobody picked them. No alert needed.`);
+      continue;
+    }
+
+    // Calculate swap deadline = latest tee time of golfers in this tier
+    // (gives users until the last golfer in the tier tees off)
+    const tier = tiersSnap.docs.find(d => d.data().tierNumber === tierNumber)?.data();
+    let latestTeeTime = null;
+    if (tier) {
+      for (const tg of tier.golfers) {
+        const score = existingScores.get(tg.id);
+        if (score?.teeTime) {
+          const tt = score.teeTime.toDate ? score.teeTime.toDate() : new Date(score.teeTime);
+          if (!latestTeeTime || tt > latestTeeTime) latestTeeTime = tt;
+        }
+      }
+    }
+    // Fallback: 2 hours from now if no tee time data
+    if (!latestTeeTime) {
+      latestTeeTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    }
+
+    // Create the withdrawal alert
+    const alertData = {
+      golferId: golfer.id,
+      golferName: golfer.name,
+      tierNumber,
+      affectedEntryIds,
+      swapDeadline: Timestamp.fromDate(latestTeeTime),
+      status: 'active',
+      createdAt: Timestamp.now(),
+    };
+
+    await addDoc(
+      collection(db, 'tournaments', tournament.id, 'withdrawalAlerts'),
+      alertData
+    );
+
+    console.log(`  WITHDRAWAL ALERT: ${golfer.name} (Tier ${tierNumber})`);
+    console.log(`    ${affectedEntryIds.length} entries affected`);
+    console.log(`    Swap deadline: ${latestTeeTime.toLocaleTimeString()}`);
+
+    // Find affected participant names for logging
+    const affectedNames = allEntries
+      .filter(e => affectedEntryIds.includes(e.id))
+      .map(e => e.participantName || e.entryLabel);
+    console.log(`    Affected: ${affectedNames.join(', ')}`);
   }
 
   // Update current round on tournament

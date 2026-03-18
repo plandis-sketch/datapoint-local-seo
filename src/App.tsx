@@ -13,6 +13,7 @@ import TournamentSetup from './pages/admin/TournamentSetup';
 import ScoreManagement from './pages/admin/ScoreManagement';
 import PaymentTracking from './pages/admin/PaymentTracking';
 import PickOverrides from './pages/admin/PickOverrides';
+import SwapPick from './pages/SwapPick';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/draft" element={<Draft />} />
         <Route path="/my-entries" element={<MyEntries />} />
+        <Route path="/swap/:alertId" element={<SwapPick />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<AdminLogin />} />
         <Route path="/admin/tournament" element={<RequireAdmin><TournamentSetup /></RequireAdmin>} />
