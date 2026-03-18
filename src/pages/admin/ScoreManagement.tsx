@@ -47,7 +47,7 @@ export default function ScoreManagement() {
 
     const position = edit.position !== undefined ? (edit.position ? parseInt(edit.position) : null) : existing?.position ?? null;
     const status = (edit.status || existing?.status || 'active') as 'active' | 'cut' | 'withdrawn';
-    const points = calculateGolferPoints(position, status, tournament.cutPlayerCount);
+    const points = calculateGolferPoints(position, status, tournament.cutPlayerCount, tournament.currentRound);
 
     try {
       await updateGolferScore(tournament.id, golferId, {

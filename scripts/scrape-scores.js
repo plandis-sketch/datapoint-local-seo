@@ -60,8 +60,16 @@ function parsePosition(displayValue) {
   return { position: isNaN(num) ? null : num, status: 'active' };
 }
 
-function calculatePoints(position, status, cutPlayerCount) {
-  if (status === 'cut' || status === 'withdrawn') {
+function calculatePoints(position, status, cutPlayerCount, currentRound) {
+  if (status === 'cut') {
+    return (cutPlayerCount ?? 50) + 1;
+  }
+  if (status === 'withdrawn') {
+    // R3/R4 withdrawal: last place among cut-makers
+    if (currentRound && currentRound >= 3) {
+      return cutPlayerCount ?? 50;
+    }
+    // R1/R2 or unknown round: same as missed cut
     return (cutPlayerCount ?? 50) + 1;
   }
   return position ?? 999;
@@ -378,7 +386,7 @@ async function scrapeAndUpdate() {
 
     // Calculate points
     const effectiveCutCount = cutPlayerCount || activeCompetitors.length || 65;
-    const points = calculatePoints(position, status, effectiveCutCount);
+    const points = calculatePoints(position, status, effectiveCutCount, espnRound);
 
     // Write to Firestore
     await setDoc(doc(db, 'tournaments', tournament.id, 'golferScores', golfer.id), {
@@ -397,8 +405,15 @@ async function scrapeAndUpdate() {
     matched++;
   }
 
-  // 9. Process new withdrawals — create alerts for affected users
+  // 9. Process new withdrawals — only create swap alerts for pre-tournament WDs
+  //    Mid-round WDs (R1-R4) get penalty points but no swap opportunity
   for (const golfer of newWithdrawals) {
+    // Mid-round withdrawal: log it but don't create swap alert
+    if (espnRound >= 1 && eventState === 'in') {
+      const roundLabel = espnRound <= 2 ? 'before the cut' : 'after the cut';
+      console.log(`  ${golfer.name} withdrew mid-tournament in R${espnRound} (${roundLabel}) — no swap allowed.`);
+      continue;
+    }
     // Skip if we already have an alert for this golfer
     if (existingAlertGolferIds.has(golfer.id)) {
       console.log(`  Withdrawal alert already exists for ${golfer.name}, skipping.`);
