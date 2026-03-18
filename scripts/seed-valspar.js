@@ -39,10 +39,10 @@ const db = getFirestore(app);
 const tournament = {
   name: 'Valspar Championship 2026',
   dates: {
-    start: Timestamp.fromDate(new Date('2026-03-20T07:00:00-04:00')),
-    end: Timestamp.fromDate(new Date('2026-03-23T18:00:00-04:00')),
+    start: Timestamp.fromDate(new Date('2026-03-19T07:00:00-04:00')),
+    end: Timestamp.fromDate(new Date('2026-03-22T18:00:00-04:00')),
   },
-  firstTeeTime: Timestamp.fromDate(new Date('2026-03-20T07:00:00-04:00')),
+  firstTeeTime: Timestamp.fromDate(new Date('2026-03-19T07:00:00-04:00')),
   cutLine: null,
   cutPlayerCount: null,
   picksLocked: false,
