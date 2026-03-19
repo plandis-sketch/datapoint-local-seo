@@ -20,19 +20,56 @@
     .color-row { display: flex; gap: 12px; align-items: center; }
     .color-row input[type="color"] { width: 50px; height: 44px; padding: 4px; cursor: pointer; }
     .color-row input[type="text"] { flex: 1; }
-    button { background: #1a7a42; color: #fff; border: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; margin-top: 20px; font-weight: 600; }
-    button:hover { background: #15633a; }
+    .btn { background: #1a7a42; color: #fff; border: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; margin-top: 20px; font-weight: 600; }
+    .btn:hover { background: #15633a; }
+    .btn:disabled { background: #999; cursor: not-allowed; }
+    .btn-secondary { background: #444; margin-top: 12px; font-size: 14px; padding: 10px 20px; }
+    .btn-secondary:hover { background: #555; }
     .code-block { background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; font-family: "Fira Code", "Consolas", monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; word-break: break-all; position: relative; margin-top: 12px; }
     .copy-btn { position: absolute; top: 8px; right: 8px; background: #444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
     .copy-btn:hover { background: #666; }
     .preview-area { border: 2px dashed #ddd; border-radius: 12px; padding: 20px; margin-top: 16px; min-height: 200px; }
-    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-    .step { text-align: center; padding: 20px; }
-    .step-num { width: 36px; height: 36px; border-radius: 50%; background: #1a7a42; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; margin-bottom: 8px; }
-    .step-title { font-weight: 600; margin-bottom: 4px; }
-    .step-desc { font-size: 13px; color: #666; }
     .help-text { font-size: 13px; color: #888; margin-top: 6px; }
-    @media (max-width: 600px) { .steps { grid-template-columns: 1fr; } }
+
+    /* Search results */
+    .search-row { display: flex; gap: 12px; }
+    .search-row input { flex: 1; }
+    .search-row button { flex-shrink: 0; width: auto; margin-top: 0; padding: 12px 24px; }
+    .search-results { margin-top: 12px; }
+    .search-result { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; }
+    .search-result:hover { border-color: #1a7a42; background: #f0faf4; }
+    .search-result.selected { border-color: #1a7a42; background: #e8f5e9; }
+    .sr-info { flex: 1; }
+    .sr-name { font-weight: 600; font-size: 15px; }
+    .sr-address { font-size: 13px; color: #666; margin-top: 2px; }
+    .sr-rating { font-size: 13px; color: #888; margin-top: 2px; }
+    .sr-badge { background: #1a7a42; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+    .search-empty { padding: 20px; text-align: center; color: #999; font-size: 14px; }
+
+    /* Tabs */
+    .tabs { display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px; gap: 0; }
+    .tab { padding: 12px 20px; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; white-space: nowrap; }
+    .tab:hover { color: #333; }
+    .tab.active { color: #1a7a42; border-bottom-color: #1a7a42; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Install steps */
+    .install-step { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid #f0f0f0; }
+    .install-step:last-child { border-bottom: none; }
+    .step-num { width: 32px; height: 32px; border-radius: 50%; background: #1a7a42; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+    .step-body { flex: 1; }
+    .step-title { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+    .step-desc { font-size: 14px; color: #555; line-height: 1.5; }
+    .step-desc code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .step-note { background: #fff8e1; padding: 12px 16px; border-radius: 8px; margin-top: 12px; font-size: 13px; color: #795548; border-left: 3px solid #ffc107; }
+
+    /* Section divider */
+    .section-num { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .section-num .num { width: 28px; height: 28px; border-radius: 50%; background: #e8f5e9; color: #1a7a42; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+    .section-num h2 { margin-bottom: 0; }
+
+    @media (max-width: 600px) { .search-row { flex-direction: column; } .search-row button { width: 100%; } .tabs { overflow-x: auto; } }
   </style>
 </head>
 <body>
@@ -42,65 +79,206 @@
   </div>
 
   <div class="main">
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-title">Get Place ID</div>
-        <div class="step-desc">Find the client's Google Place ID</div>
+
+    <!-- ─── STEP 1: FIND THE BUSINESS ───────────────────────────────── -->
+    <div class="card">
+      <div class="section-num"><div class="num">1</div><h2>Find the Client's Business</h2></div>
+      <p style="margin-bottom: 16px; color: #555; font-size: 14px;">Search by business name. We'll look it up on Google and grab the Place ID automatically.</p>
+
+      <label for="searchQuery">Business Name + City</label>
+      <div class="search-row">
+        <input type="text" id="searchQuery" placeholder="e.g. Freedom Property Investors LLC Norfolk VA">
+        <button class="btn" id="searchBtn" onclick="searchBusiness()" style="width: auto; margin-top: 0;">Search</button>
       </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-title">Configure</div>
-        <div class="step-desc">Set colors, review count, and style</div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-title">Embed</div>
-        <div class="step-desc">Copy the code to WordPress / Elementor</div>
+      <div id="searchResults" class="search-results"></div>
+
+      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee;">
+        <label for="placeId">Google Place ID</label>
+        <input type="text" id="placeId" placeholder="Auto-filled when you select a result above, or paste manually">
+        <p class="help-text">Already have the Place ID? Paste it directly. Otherwise use the search above.</p>
       </div>
     </div>
 
+    <!-- ─── STEP 2: CUSTOMIZE ───────────────────────────────────────── -->
     <div class="card">
-      <h2>Widget Configuration</h2>
-
-      <label for="placeId">Google Place ID</label>
-      <input type="text" id="placeId" placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4">
-      <p class="help-text">Find Place IDs at <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank">Google's Place ID Finder</a></p>
+      <div class="section-num"><div class="num">2</div><h2>Customize the Widget</h2></div>
 
       <label>Accent Color</label>
       <div class="color-row">
         <input type="color" id="accentColor" value="#1a7a42">
         <input type="text" id="accentHex" value="#1a7a42" placeholder="#1a7a42">
       </div>
+      <p class="help-text">Match this to the client's brand color. Used for card top border and navigation arrows.</p>
 
       <label for="maxReviews">Max Reviews to Show</label>
       <select id="maxReviews">
         <option value="3">3</option>
-        <option value="5" selected>5</option>
+        <option value="5" selected>5 (recommended)</option>
         <option value="10">10</option>
       </select>
 
-      <button onclick="generateEmbed()">Generate Embed Code</button>
+      <label for="widgetHeading">Widget Heading</label>
+      <input type="text" id="widgetHeading" placeholder="See What Our Clients Have to Say" value="See What Our Clients Have to Say">
+
+      <label for="widgetSubheading">Subheading (optional)</label>
+      <input type="text" id="widgetSubheading" placeholder="Leave blank to auto-generate from rating + review count">
+      <p class="help-text">Leave blank to show "X stars from Y reviews on Google" automatically.</p>
+
+      <button class="btn" onclick="generateEmbed()">Generate Embed Code</button>
     </div>
 
+    <!-- ─── STEP 3: EMBED CODE ──────────────────────────────────────── -->
     <div class="card" id="embedOutput" style="display:none;">
-      <h2>Embed Code</h2>
-      <p>Paste this into an <strong>HTML widget</strong> in Elementor, or into a Custom HTML block in WordPress.</p>
+      <div class="section-num"><div class="num">3</div><h2>Copy the Embed Code</h2></div>
+      <p style="color: #555; font-size: 14px;">This is the single line of code you'll paste into the client's website. It does everything — loads the reviews, renders the carousel, handles mobile.</p>
       <div style="position:relative;">
         <div class="code-block" id="embedCode"></div>
         <button class="copy-btn" onclick="copyCode()">Copy</button>
       </div>
     </div>
 
+    <!-- ─── STEP 4: INSTALL INSTRUCTIONS ────────────────────────────── -->
+    <div class="card" id="installGuide" style="display:none;">
+      <div class="section-num"><div class="num">4</div><h2>Install on the Client's Website</h2></div>
+      <p style="margin-bottom: 16px; color: #555; font-size: 14px;">Follow the steps for the client's platform. If you already copied the code above, you're ready.</p>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(event, 'tab-elementor')">WordPress + Elementor</div>
+        <div class="tab" onclick="switchTab(event, 'tab-gutenberg')">WordPress (Gutenberg)</div>
+        <div class="tab" onclick="switchTab(event, 'tab-html')">Any HTML Site</div>
+      </div>
+
+      <!-- WordPress + Elementor -->
+      <div id="tab-elementor" class="tab-content active">
+        <div class="install-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Log into WordPress</div>
+            <div class="step-desc">Go to <code>yoursite.com/wp-admin</code> and log in with your admin credentials.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Navigate to the target page</div>
+            <div class="step-desc">In the left sidebar, go to <strong>Pages</strong> and find the page where you want the review widget to appear (e.g. the homepage or a landing page).</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Open Elementor</div>
+            <div class="step-desc">Click the blue <strong>"Edit with Elementor"</strong> button at the top of the page. Wait for the Elementor editor to fully load.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Add an HTML widget</div>
+            <div class="step-desc">In the <strong>left panel</strong>, search for <strong>"HTML"</strong> in the widget search bar. You'll see a widget called <strong>"HTML"</strong> (with a <code>&lt;/&gt;</code> icon). Drag it onto your page in the exact spot where you want the reviews to show up.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Paste the embed code</div>
+            <div class="step-desc">Click on the HTML widget you just placed. In the left panel, you'll see a <strong>"HTML Code"</strong> text area. <strong>Paste the embed code</strong> you copied from Step 3 above into this text area.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <div class="step-title">Publish</div>
+            <div class="step-desc">Click the green <strong>"Update"</strong> button at the bottom of the Elementor panel to save and publish your changes.</div>
+            <div class="step-note">The review widget will NOT render inside the Elementor editor preview — that's completely normal. It only loads on the live, published page because it needs to fetch data from our review server.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">7</div>
+          <div class="step-body">
+            <div class="step-title">Verify on the live site</div>
+            <div class="step-desc">Visit the live page (not the editor). You should see the review carousel with the client's Google reviews, star ratings, and navigation arrows. If it doesn't appear, open your browser's Developer Tools (F12) and check the Console tab for any error messages.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WordPress Gutenberg -->
+      <div id="tab-gutenberg" class="tab-content">
+        <div class="install-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Log into WordPress</div>
+            <div class="step-desc">Go to <code>yoursite.com/wp-admin</code> and log in.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Edit the target page</div>
+            <div class="step-desc">Go to <strong>Pages</strong>, find your target page, and click <strong>"Edit"</strong>. This opens the WordPress block editor (Gutenberg).</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Add a Custom HTML block</div>
+            <div class="step-desc">Click the <strong>"+"</strong> button to add a new block. Search for <strong>"Custom HTML"</strong> and click to add it at the position where you want reviews.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Paste the embed code</div>
+            <div class="step-desc"><strong>Paste the embed code</strong> from Step 3 above directly into the Custom HTML block's text area.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Update the page</div>
+            <div class="step-desc">Click <strong>"Update"</strong> in the top right to publish. Then visit the live page to verify the widget loads.</div>
+            <div class="step-note">Just like Elementor, the preview inside the editor won't show the widget. Check the live page.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Any HTML Site -->
+      <div id="tab-html" class="tab-content">
+        <div class="install-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Open the page's HTML</div>
+            <div class="step-desc">Open the HTML file for the page where you want the reviews (e.g. <code>index.html</code>) in your code editor.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Paste the embed code</div>
+            <div class="step-desc">Find the spot in the HTML where you want the review section. Paste the embed code from Step 3 above. It can go inside any <code>&lt;div&gt;</code>, <code>&lt;section&gt;</code>, or directly in the <code>&lt;body&gt;</code>.</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Save and deploy</div>
+            <div class="step-desc">Save the file and upload it to your hosting. The widget script loads asynchronously, so it won't slow down the rest of the page.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── LIVE PREVIEW ────────────────────────────────────────────── -->
     <div class="card" id="previewCard" style="display:none;">
       <h2>Live Preview</h2>
-      <p style="margin-bottom: 8px; color: #666; font-size: 14px;">This is how the widget will look on the client's site.</p>
+      <p style="margin-bottom: 8px; color: #666; font-size: 14px;">This is exactly how the widget will look on the client's live page.</p>
       <div class="preview-area" id="previewArea"></div>
     </div>
+
   </div>
 
   <script>
-    // Sync color inputs
+    // ─── COLOR SYNC ──────────────────────────────────────────────────
     document.getElementById('accentColor').addEventListener('input', function () {
       document.getElementById('accentHex').value = this.value;
     });
@@ -110,26 +288,102 @@
       }
     });
 
+    // ─── TABS ────────────────────────────────────────────────────────
+    function switchTab(e, tabId) {
+      document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
+      e.currentTarget.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    // ─── BUSINESS SEARCH ─────────────────────────────────────────────
+    function searchBusiness() {
+      var q = document.getElementById('searchQuery').value.trim();
+      if (!q) { alert('Enter a business name and city to search'); return; }
+
+      var btn = document.getElementById('searchBtn');
+      btn.disabled = true;
+      btn.textContent = 'Searching...';
+      document.getElementById('searchResults').innerHTML = '<div class="search-empty">Searching Google...</div>';
+
+      fetch(getApiBase() + '/api/place-search?q=' + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          btn.disabled = false;
+          btn.textContent = 'Search';
+
+          if (!data.results || data.results.length === 0) {
+            document.getElementById('searchResults').innerHTML = '<div class="search-empty">No businesses found. Try a different name or add the city.</div>';
+            return;
+          }
+
+          var html = '';
+          data.results.forEach(function (r) {
+            var ratingText = r.rating ? (r.rating + ' stars, ' + r.totalReviews + ' reviews') : 'No reviews yet';
+            html +=
+              '<div class="search-result" onclick="selectBusiness(this, \'' + r.placeId + '\', \'' + escapeAttr(r.name) + '\')">' +
+                '<div class="sr-info">' +
+                  '<div class="sr-name">' + escapeHtml(r.name) + '</div>' +
+                  '<div class="sr-address">' + escapeHtml(r.address) + '</div>' +
+                  '<div class="sr-rating">' + ratingText + '</div>' +
+                '</div>' +
+                '<div class="sr-badge">Select</div>' +
+              '</div>';
+          });
+          document.getElementById('searchResults').innerHTML = html;
+        })
+        .catch(function (err) {
+          btn.disabled = false;
+          btn.textContent = 'Search';
+          document.getElementById('searchResults').innerHTML = '<div class="search-empty">Search failed: ' + err.message + '</div>';
+        });
+    }
+
+    // Allow pressing Enter to search
+    document.getElementById('searchQuery').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') searchBusiness();
+    });
+
+    function selectBusiness(el, placeId, name) {
+      document.querySelectorAll('.search-result').forEach(function (r) { r.classList.remove('selected'); });
+      el.classList.add('selected');
+      document.getElementById('placeId').value = placeId;
+    }
+
+    // ─── GENERATE EMBED ──────────────────────────────────────────────
     function getApiBase() {
       return window.location.origin;
     }
 
     function generateEmbed() {
       var placeId = document.getElementById('placeId').value.trim();
-      if (!placeId) { alert('Please enter a Google Place ID'); return; }
+      if (!placeId) { alert('Please search for a business or enter a Place ID first.'); return; }
 
       var accent = document.getElementById('accentHex').value.trim() || '#1a7a42';
       var maxReviews = document.getElementById('maxReviews').value;
+      var heading = document.getElementById('widgetHeading').value.trim();
+      var subheading = document.getElementById('widgetSubheading').value.trim();
       var apiBase = getApiBase();
 
-      var code = '<script src="' + apiBase + '/public/review-widget.js"\n' +
-                 '  data-place-id="' + placeId + '"\n' +
-                 '  data-api="' + apiBase + '"\n' +
-                 '  data-accent="' + accent + '"\n' +
-                 '  data-max="' + maxReviews + '"></' + 'script>';
+      var attrs = [
+        'src="' + apiBase + '/public/review-widget.js"',
+        'data-place-id="' + placeId + '"',
+        'data-api="' + apiBase + '"',
+        'data-accent="' + accent + '"',
+        'data-max="' + maxReviews + '"'
+      ];
+      if (heading && heading !== 'See What Our Clients Have to Say') {
+        attrs.push('data-heading="' + heading + '"');
+      }
+      if (subheading) {
+        attrs.push('data-subheading="' + subheading + '"');
+      }
+
+      var code = '<script ' + attrs.join('\n  ') + '></' + 'script>';
 
       document.getElementById('embedCode').textContent = code;
       document.getElementById('embedOutput').style.display = 'block';
+      document.getElementById('installGuide').style.display = 'block';
 
       // Live preview
       var previewArea = document.getElementById('previewArea');
@@ -140,8 +394,13 @@
       s.setAttribute('data-api', apiBase);
       s.setAttribute('data-accent', accent);
       s.setAttribute('data-max', maxReviews);
+      if (heading) s.setAttribute('data-heading', heading);
+      if (subheading) s.setAttribute('data-subheading', subheading);
       previewArea.appendChild(s);
       document.getElementById('previewCard').style.display = 'block';
+
+      // Scroll to output
+      document.getElementById('embedOutput').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function copyCode() {
@@ -151,6 +410,17 @@
         btn.textContent = 'Copied!';
         setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
       });
+    }
+
+    // ─── HELPERS ─────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.appendChild(document.createTextNode(str));
+      return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+      return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
   </script>
 </body>

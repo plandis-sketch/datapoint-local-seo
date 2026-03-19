@@ -10,6 +10,8 @@
   var accentColor = scriptTag.getAttribute('data-accent') || '#1a7a42';
   var maxReviews = parseInt(scriptTag.getAttribute('data-max') || '10', 10);
   var containerId = scriptTag.getAttribute('data-container') || null;
+  var heading = scriptTag.getAttribute('data-heading') || 'See What Our Clients Have to Say';
+  var subheading = scriptTag.getAttribute('data-subheading') || '';
 
   if (!placeId) {
     console.error('[ReviewWidget] Missing data-place-id attribute');
@@ -37,6 +39,13 @@
     '.rw-nav:hover { opacity: 0.85; }' +
     '.rw-nav-prev { left: -8px; }' +
     '.rw-nav-next { right: -8px; }' +
+    '.rw-loading { text-align: center; padding: 60px 20px; color: #888; font-size: 15px; }' +
+    '.rw-loading-dots span { animation: rw-blink 1.4s infinite both; }' +
+    '.rw-loading-dots span:nth-child(2) { animation-delay: 0.2s; }' +
+    '.rw-loading-dots span:nth-child(3) { animation-delay: 0.4s; }' +
+    '@keyframes rw-blink { 0%,80%,100% { opacity: 0; } 40% { opacity: 1; } }' +
+    '.rw-error { text-align: center; padding: 40px 20px; color: #999; font-size: 14px; }' +
+    '.rw-error a { color: ' + accentColor + '; text-decoration: none; }' +
     '@media (max-width: 900px) { .rw-card { flex: 0 0 calc(50% - 12px); } }' +
     '@media (max-width: 600px) { .rw-card { flex: 0 0 100%; } .rw-header h2 { font-size: 24px; } }';
 
@@ -60,17 +69,50 @@
     return text.substring(0, maxLen).replace(/\s+\S*$/, '') + '...';
   }
 
-  // ─── RENDER ──────────────────────────────────────────────────────────
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
+  // ─── GET OR CREATE TARGET ELEMENT ────────────────────────────────────
+  var target;
+  if (containerId) {
+    target = document.getElementById(containerId);
+  }
+  if (!target) {
+    target = document.createElement('div');
+    scriptTag.parentNode.insertBefore(target, scriptTag);
+  }
+
+  // ─── INJECT STYLES IMMEDIATELY ───────────────────────────────────────
+  var styleEl = document.createElement('style');
+  styleEl.textContent = WIDGET_CSS;
+  document.head.appendChild(styleEl);
+
+  // ─── SHOW LOADING STATE ──────────────────────────────────────────────
+  target.innerHTML =
+    '<div class="rw-container">' +
+      '<div class="rw-header">' +
+        '<h2>' + escapeHtml(heading) + '</h2>' +
+      '</div>' +
+      '<div class="rw-loading">Loading reviews<span class="rw-loading-dots"><span>.</span><span>.</span><span>.</span></span></div>' +
+    '</div>';
+
+  // ─── RENDER REVIEWS ──────────────────────────────────────────────────
   function render(data) {
     var reviews = data.reviews.slice(0, maxReviews);
-    if (reviews.length === 0) return;
+    if (reviews.length === 0) {
+      target.innerHTML =
+        '<div class="rw-container">' +
+          '<div class="rw-header"><h2>' + escapeHtml(heading) + '</h2></div>' +
+          '<div class="rw-error">No reviews found for this business.</div>' +
+        '</div>';
+      return;
+    }
 
-    // Inject styles
-    var styleEl = document.createElement('style');
-    styleEl.textContent = WIDGET_CSS;
-    document.head.appendChild(styleEl);
+    var sub = subheading || (data.rating + ' stars from ' + data.totalReviews + ' reviews on Google');
 
-    // Build cards
     var cardsHtml = '';
     for (var i = 0; i < reviews.length; i++) {
       var r = reviews[i];
@@ -88,34 +130,26 @@
         '</div>';
     }
 
-    var html =
+    target.innerHTML =
       '<div class="rw-container">' +
         '<div class="rw-header">' +
-          '<h2>See What Our Clients Have to Say</h2>' +
-          '<p>' + data.rating + ' stars from ' + data.totalReviews + ' reviews on Google</p>' +
+          '<h2>' + escapeHtml(heading) + '</h2>' +
+          '<p>' + escapeHtml(sub) + '</p>' +
         '</div>' +
         '<div class="rw-track-wrapper">' +
           '<div class="rw-track">' + cardsHtml + '</div>' +
-          '<button class="rw-nav rw-nav-prev" style="background:' + accentColor + '">' + ARROW_LEFT + '</button>' +
-          '<button class="rw-nav rw-nav-next" style="background:' + accentColor + '">' + ARROW_RIGHT + '</button>' +
+          (reviews.length > 3 ? '<button class="rw-nav rw-nav-prev" style="background:' + accentColor + '">' + ARROW_LEFT + '</button>' +
+          '<button class="rw-nav rw-nav-next" style="background:' + accentColor + '">' + ARROW_RIGHT + '</button>' : '') +
         '</div>' +
       '</div>';
-
-    var target;
-    if (containerId) {
-      target = document.getElementById(containerId);
-    }
-    if (!target) {
-      target = document.createElement('div');
-      scriptTag.parentNode.insertBefore(target, scriptTag);
-    }
-    target.innerHTML = html;
 
     // ─── CAROUSEL LOGIC ────────────────────────────────────────────────
     var track = target.querySelector('.rw-track');
     var cards = target.querySelectorAll('.rw-card');
     var prevBtn = target.querySelector('.rw-nav-prev');
     var nextBtn = target.querySelector('.rw-nav-next');
+    if (!prevBtn || !nextBtn) return;
+
     var currentIndex = 0;
 
     function getVisibleCount() {
@@ -140,10 +174,13 @@
     window.addEventListener('resize', slide);
   }
 
-  function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
+  // ─── RENDER ERROR ────────────────────────────────────────────────────
+  function renderError() {
+    target.innerHTML =
+      '<div class="rw-container">' +
+        '<div class="rw-header"><h2>' + escapeHtml(heading) + '</h2></div>' +
+        '<div class="rw-error">Unable to load reviews right now. <a href="https://search.google.com/local/reviews?placeid=' + encodeURIComponent(placeId) + '" target="_blank" rel="noopener">View reviews on Google</a></div>' +
+      '</div>';
   }
 
   // ─── FETCH AND INIT ─────────────────────────────────────────────────
@@ -158,9 +195,11 @@
           render(data);
         } catch (e) {
           console.error('[ReviewWidget] Failed to parse response', e);
+          renderError();
         }
       } else {
         console.error('[ReviewWidget] API error', xhr.status, xhr.responseText);
+        renderError();
       }
     }
   };

@@ -10,7 +10,7 @@ app.use(express.json());
 
 // CORS middleware for embeddable widget
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/reviews') || req.path.startsWith('/public/review-widget')) {
+  if (req.path.startsWith('/api/reviews') || req.path.startsWith('/api/place-search') || req.path.startsWith('/public/review-widget')) {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -198,6 +198,34 @@ app.get('/api/analyze', async (req, res) => {
   const analyzer = new LocalSEOAnalyzer();
   const results = await analyzer.analyzeWebsite(url, businessName, location);
   res.json(results);
+});
+
+// ─── PLACE SEARCH API ────────────────────────────────────────────────
+// Search for a business by name to find its Place ID.
+// Usage: GET /api/place-search?q=Freedom+Property+Investors+LLC
+app.get('/api/place-search', async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.status(400).json({ error: 'Missing search query (?q=...)' });
+  if (!GOOGLE_PLACES_API_KEY) return res.status(500).json({ error: 'Google Places API key not configured' });
+
+  try {
+    const response = await axios.get('https://maps.googleapis.com/maps/api/place/textsearch/json', {
+      params: { query: q, key: GOOGLE_PLACES_API_KEY },
+      timeout: 5000
+    });
+
+    const results = (response.data.results || []).slice(0, 5).map(p => ({
+      placeId: p.place_id,
+      name: p.name,
+      address: p.formatted_address,
+      rating: p.rating || null,
+      totalReviews: p.user_ratings_total || 0
+    }));
+
+    res.json({ results });
+  } catch (error) {
+    res.status(500).json({ error: 'Search failed: ' + error.message });
+  }
 });
 
 // ─── REVIEW WIDGET API ───────────────────────────────────────────────

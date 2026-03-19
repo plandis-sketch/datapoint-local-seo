@@ -8,5 +8,5 @@ services:
       - key: NODE_VERSION
         value: 18
       - key: GOOGLE_PLACES_API_KEY
-        value: AIzaSyDLlwetJYSLaHVmdbqRUVIxQjtDSlDs2kk
+        sync: false
     healthCheckPath: /
