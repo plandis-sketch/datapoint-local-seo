@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Widget Generator | Data Point Local SEO</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; }
+    .header { background: linear-gradient(135deg, #1a7a42, #2ecc71); color: #fff; padding: 40px 20px; text-align: center; }
+    .header h1 { font-size: 28px; margin-bottom: 8px; }
+    .header p { opacity: 0.9; font-size: 16px; }
+    .main { max-width: 900px; margin: 0 auto; padding: 30px 20px; }
+    .card { background: #fff; border-radius: 12px; padding: 30px; margin-bottom: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .card h2 { font-size: 20px; margin-bottom: 16px; color: #1a1a1a; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; margin-top: 16px; font-size: 14px; }
+    label:first-child { margin-top: 0; }
+    input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+    input:focus, select:focus { outline: none; border-color: #1a7a42; box-shadow: 0 0 0 3px rgba(26,122,66,0.1); }
+    .color-row { display: flex; gap: 12px; align-items: center; }
+    .color-row input[type="color"] { width: 50px; height: 44px; padding: 4px; cursor: pointer; }
+    .color-row input[type="text"] { flex: 1; }
+    button { background: #1a7a42; color: #fff; border: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; margin-top: 20px; font-weight: 600; }
+    button:hover { background: #15633a; }
+    .code-block { background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; font-family: "Fira Code", "Consolas", monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; word-break: break-all; position: relative; margin-top: 12px; }
+    .copy-btn { position: absolute; top: 8px; right: 8px; background: #444; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+    .copy-btn:hover { background: #666; }
+    .preview-area { border: 2px dashed #ddd; border-radius: 12px; padding: 20px; margin-top: 16px; min-height: 200px; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .step { text-align: center; padding: 20px; }
+    .step-num { width: 36px; height: 36px; border-radius: 50%; background: #1a7a42; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; margin-bottom: 8px; }
+    .step-title { font-weight: 600; margin-bottom: 4px; }
+    .step-desc { font-size: 13px; color: #666; }
+    .help-text { font-size: 13px; color: #888; margin-top: 6px; }
+    @media (max-width: 600px) { .steps { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Google Review Widget Generator</h1>
+    <p>Generate an embeddable review carousel for any client website</p>
+  </div>
+
+  <div class="main">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Get Place ID</div>
+        <div class="step-desc">Find the client's Google Place ID</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Configure</div>
+        <div class="step-desc">Set colors, review count, and style</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">Embed</div>
+        <div class="step-desc">Copy the code to WordPress / Elementor</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Widget Configuration</h2>
+
+      <label for="placeId">Google Place ID</label>
+      <input type="text" id="placeId" placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4">
+      <p class="help-text">Find Place IDs at <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank">Google's Place ID Finder</a></p>
+
+      <label>Accent Color</label>
+      <div class="color-row">
+        <input type="color" id="accentColor" value="#1a7a42">
+        <input type="text" id="accentHex" value="#1a7a42" placeholder="#1a7a42">
+      </div>
+
+      <label for="maxReviews">Max Reviews to Show</label>
+      <select id="maxReviews">
+        <option value="3">3</option>
+        <option value="5" selected>5</option>
+        <option value="10">10</option>
+      </select>
+
+      <button onclick="generateEmbed()">Generate Embed Code</button>
+    </div>
+
+    <div class="card" id="embedOutput" style="display:none;">
+      <h2>Embed Code</h2>
+      <p>Paste this into an <strong>HTML widget</strong> in Elementor, or into a Custom HTML block in WordPress.</p>
+      <div style="position:relative;">
+        <div class="code-block" id="embedCode"></div>
+        <button class="copy-btn" onclick="copyCode()">Copy</button>
+      </div>
+    </div>
+
+    <div class="card" id="previewCard" style="display:none;">
+      <h2>Live Preview</h2>
+      <p style="margin-bottom: 8px; color: #666; font-size: 14px;">This is how the widget will look on the client's site.</p>
+      <div class="preview-area" id="previewArea"></div>
+    </div>
+  </div>
+
+  <script>
+    // Sync color inputs
+    document.getElementById('accentColor').addEventListener('input', function () {
+      document.getElementById('accentHex').value = this.value;
+    });
+    document.getElementById('accentHex').addEventListener('input', function () {
+      if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
+        document.getElementById('accentColor').value = this.value;
+      }
+    });
+
+    function getApiBase() {
+      return window.location.origin;
+    }
+
+    function generateEmbed() {
+      var placeId = document.getElementById('placeId').value.trim();
+      if (!placeId) { alert('Please enter a Google Place ID'); return; }
+
+      var accent = document.getElementById('accentHex').value.trim() || '#1a7a42';
+      var maxReviews = document.getElementById('maxReviews').value;
+      var apiBase = getApiBase();
+
+      var code = '<script src="' + apiBase + '/public/review-widget.js"\n' +
+                 '  data-place-id="' + placeId + '"\n' +
+                 '  data-api="' + apiBase + '"\n' +
+                 '  data-accent="' + accent + '"\n' +
+                 '  data-max="' + maxReviews + '"></' + 'script>';
+
+      document.getElementById('embedCode').textContent = code;
+      document.getElementById('embedOutput').style.display = 'block';
+
+      // Live preview
+      var previewArea = document.getElementById('previewArea');
+      previewArea.innerHTML = '';
+      var s = document.createElement('script');
+      s.src = apiBase + '/public/review-widget.js';
+      s.setAttribute('data-place-id', placeId);
+      s.setAttribute('data-api', apiBase);
+      s.setAttribute('data-accent', accent);
+      s.setAttribute('data-max', maxReviews);
+      previewArea.appendChild(s);
+      document.getElementById('previewCard').style.display = 'block';
+    }
+
+    function copyCode() {
+      var code = document.getElementById('embedCode').textContent;
+      navigator.clipboard.writeText(code).then(function () {
+        var btn = document.querySelector('.copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

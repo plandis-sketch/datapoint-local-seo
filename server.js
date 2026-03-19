@@ -8,6 +8,21 @@ const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 
 app.use(express.json());
 
+// CORS middleware for embeddable widget
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/reviews') || req.path.startsWith('/public/review-widget')) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+  }
+  next();
+});
+
+// In-memory review cache with TTL (24 hours)
+const reviewCache = new Map();
+const CACHE_TTL = 24 * 60 * 60 * 1000;
+
 class LocalSEOAnalyzer {
   async analyzeWebsite(url, businessName, location) {
     const results = {
@@ -184,6 +199,63 @@ app.get('/api/analyze', async (req, res) => {
   const results = await analyzer.analyzeWebsite(url, businessName, location);
   res.json(results);
 });
+
+// ─── REVIEW WIDGET API ───────────────────────────────────────────────
+// Returns Google reviews for a given Place ID. Used by the embeddable widget.
+// Usage: GET /api/reviews/:placeId
+app.get('/api/reviews/:placeId', async (req, res) => {
+  const { placeId } = req.params;
+
+  if (!GOOGLE_PLACES_API_KEY) {
+    return res.status(500).json({ error: 'Google Places API key not configured' });
+  }
+
+  // Check cache
+  const cached = reviewCache.get(placeId);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+    return res.json(cached.data);
+  }
+
+  try {
+    const response = await axios.get('https://maps.googleapis.com/maps/api/place/details/json', {
+      params: {
+        place_id: placeId,
+        fields: 'name,rating,user_ratings_total,reviews,url',
+        key: GOOGLE_PLACES_API_KEY,
+        reviews_sort: 'newest'
+      },
+      timeout: 8000
+    });
+
+    if (response.data.status !== 'OK') {
+      return res.status(404).json({ error: 'Place not found', status: response.data.status });
+    }
+
+    const place = response.data.result;
+    const data = {
+      businessName: place.name,
+      rating: place.rating,
+      totalReviews: place.user_ratings_total,
+      googleUrl: place.url,
+      reviews: (place.reviews || []).map(r => ({
+        author: r.author_name,
+        rating: r.rating,
+        text: r.text,
+        time: r.relative_time_description,
+        profilePhoto: r.profile_photo_url
+      }))
+    };
+
+    // Cache result
+    reviewCache.set(placeId, { data, timestamp: Date.now() });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch reviews: ' + error.message });
+  }
+});
+
+// Serve the embeddable widget script
+app.use('/public', express.static('public'));
 
 app.get('/', (req, res) => {
   res.send(`
