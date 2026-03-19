@@ -307,19 +307,38 @@ async function scrapeAndUpdate() {
   let cutPlayerCount = tournament.cutPlayerCount;
   const activeCompetitors = competitors.filter(c => {
     const s = (c.status?.displayValue || '').toUpperCase();
-    return s !== 'CUT' && s !== 'MC' && s !== 'WD' && s !== 'DQ';
+    // If status field doesn't exist, player is active
+    return !s || (s !== 'CUT' && s !== 'MC' && s !== 'WD' && s !== 'DQ');
   });
 
-  // 7. Build ESPN tee time map (competitor ID -> tee time)
-  // ESPN provides tee times in competitor.status.teeTime or competition.startDate
+  // 7. Build ESPN tee time map
   const espnTeeTimeMap = new Map(); // espnName -> teeTime Date
   for (const competitor of competitors) {
     const name = competitor.athlete?.displayName || competitor.athlete?.fullName || '';
-    // ESPN sometimes provides teeTime in status or as startDate
     const teeTimeStr = competitor.status?.teeTime || competitor.teeTime;
     if (teeTimeStr) {
       espnTeeTimeMap.set(name, new Date(teeTimeStr));
     }
+  }
+
+  // 7b. Build position map from score groupings (handles ties)
+  // ESPN provides competitor.order (sequential) and competitor.score (to par string)
+  // Group by score to compute tied positions: T3, T10, etc.
+  const sortedCompetitors = [...competitors].sort((a, b) => (a.order || 999) - (b.order || 999));
+  const positionMap = new Map(); // competitor id -> { position, tied }
+  let rank = 1;
+  let i = 0;
+  while (i < sortedCompetitors.length) {
+    const score = sortedCompetitors[i].score;
+    // Count how many share this score
+    let j = i;
+    while (j < sortedCompetitors.length && sortedCompetitors[j].score === score) j++;
+    const tied = (j - i) > 1;
+    for (let k = i; k < j; k++) {
+      positionMap.set(sortedCompetitors[k].id, { position: rank, tied });
+    }
+    rank += (j - i);
+    i = j;
   }
 
   // 8. Match ESPN golfers to our roster and update scores
@@ -335,10 +354,26 @@ async function scrapeAndUpdate() {
     const golfer = findBestMatch(espnName, allGolfers);
     if (!golfer) continue; // Not in our pool — skip
 
-    // Parse position & status
-    const posDisplay = competitor.status?.position?.displayName ||
-                       competitor.status?.displayValue || '';
-    const { position, status } = parsePosition(posDisplay);
+    // Parse position & status from ESPN data
+    // ESPN golf API uses competitor.order for ranking and competitor.status for WD/CUT,
+    // but status may be undefined during active play. Fall back to positionMap built from scores.
+    let position, status;
+    const statusDisplay = (competitor.status?.displayValue || '').toUpperCase().trim();
+    if (statusDisplay === 'CUT' || statusDisplay === 'MC') {
+      position = null;
+      status = 'cut';
+    } else if (statusDisplay === 'WD' || statusDisplay === 'W/D') {
+      position = null;
+      status = 'withdrawn';
+    } else if (statusDisplay === 'DQ') {
+      position = null;
+      status = 'cut';
+    } else {
+      // Active player — use position map computed from score groupings
+      const posInfo = positionMap.get(competitor.id);
+      position = posInfo?.position ?? competitor.order ?? null;
+      status = 'active';
+    }
 
     // Detect new withdrawal
     const prevScore = existingScores.get(golfer.id);
@@ -352,6 +387,7 @@ async function scrapeAndUpdate() {
       : competitor.score?.displayValue || 'E';
 
     // Today / Thru parsing
+    // Derive from linescores and status since competitor.status may be undefined
     let today = '--';
     let thru = '--';
 
@@ -359,14 +395,27 @@ async function scrapeAndUpdate() {
       thru = competitor.status.thru.toString();
       if (thru === '18' || (thru === '0' && status !== 'active')) thru = 'F';
     }
-    if (competitor.status?.displayValue) {
-      const dv = competitor.status.displayValue;
-      if (dv === 'F' || dv === 'CUT' || dv === 'WD' || dv === 'MC' || dv === 'DQ') {
-        thru = 'F';
-        const currentRoundLS = (competitor.linescores || []).find(ls => ls.period === espnRound);
-        today = currentRoundLS?.displayValue || currentRoundLS?.value?.toString() || '--';
-      } else {
-        today = dv;
+
+    if (statusDisplay === 'F' || statusDisplay === 'CUT' || statusDisplay === 'WD' ||
+        statusDisplay === 'MC' || statusDisplay === 'DQ') {
+      thru = 'F';
+      const currentRoundLS = (competitor.linescores || []).find(ls => ls.period === espnRound);
+      today = currentRoundLS?.displayValue || currentRoundLS?.value?.toString() || '--';
+    } else if (competitor.status?.displayValue) {
+      today = competitor.status.displayValue;
+    } else {
+      // No status field — derive today/thru from linescores
+      const linescores = competitor.linescores || [];
+      const currentRoundLS = linescores.find(ls => ls.period === espnRound);
+      if (currentRoundLS) {
+        if (currentRoundLS.value !== undefined) {
+          today = currentRoundLS.displayValue || currentRoundLS.value.toString();
+        }
+        // If they have a score for current round, check if they're done
+        const holesCompleted = currentRoundLS.statistics?.find?.(s => s.name === 'holesCompleted');
+        if (holesCompleted) {
+          thru = holesCompleted.value === 18 ? 'F' : holesCompleted.value.toString();
+        }
       }
     }
 
