@@ -5,9 +5,9 @@
  * Also auto-locks picks when firstTeeTime has passed.
  *
  * Usage:
- *   node scripts/scrape-scores.js              # Run once
- *   node scripts/scrape-scores.js --loop 5     # Run every 5 minutes
- *   node scripts/scrape-scores.js --loop 1     # Run every 1 minute (during active play)
+ *   node scripts/scrape-scores.js              # Loop every 5 minutes (default)
+ *   node scripts/scrape-scores.js --loop 1     # Loop every 1 minute (during active play)
+ *   node scripts/scrape-scores.js --once        # Run once and exit
  */
 
 import { initializeApp } from 'firebase/app';
@@ -562,27 +562,33 @@ async function scrapeAndUpdate() {
   console.log('Done!');
 }
 
-// --- Loop Mode ---
+// --- Run Mode ---
+// Default: loop every 5 minutes (permanent scraping)
+// Use --once to run a single scrape and exit
 
 const args = process.argv.slice(2);
+const once = args.includes('--once');
 const loopIdx = args.indexOf('--loop');
+const minutes = loopIdx !== -1 ? (parseInt(args[loopIdx + 1]) || 5) : 5;
 
-if (loopIdx !== -1) {
-  const minutes = parseInt(args[loopIdx + 1]) || 5;
-  console.log(`Running every ${minutes} minute(s). Press Ctrl+C to stop.`);
+if (once) {
+  // One-shot mode: scrape once and exit
+  scrapeAndUpdate()
+    .then(() => process.exit(0))
+    .catch(err => { console.error('Fatal:', err); process.exit(1); });
+} else {
+  // Loop mode (default): scrape every N minutes forever
+  console.log(`Scraper started — running every ${minutes} minute(s). Press Ctrl+C to stop.`);
+  console.log(`Use --once for a single run, or --loop N to change interval.`);
 
   const run = async () => {
     try {
       await scrapeAndUpdate();
     } catch (err) {
-      console.error('Error:', err.message);
+      console.error('Error (will retry next cycle):', err.message);
     }
   };
 
   run(); // Run immediately
   setInterval(run, minutes * 60 * 1000);
-} else {
-  scrapeAndUpdate()
-    .then(() => process.exit(0))
-    .catch(err => { console.error('Fatal:', err); process.exit(1); });
 }
