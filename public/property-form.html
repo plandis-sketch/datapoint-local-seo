@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Your Cash Offer | Data Point</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+
+    .form-container { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); max-width: 520px; width: 100%; overflow: hidden; }
+    .form-header { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 28px 32px; text-align: center; }
+    .form-header h1 { font-size: 24px; margin-bottom: 6px; }
+    .form-header p { opacity: 0.85; font-size: 14px; }
+
+    .progress-bar { display: flex; padding: 20px 32px 0; gap: 8px; }
+    .progress-step { flex: 1; height: 4px; background: #e2e8f0; border-radius: 4px; transition: background 0.3s; }
+    .progress-step.active { background: #667eea; }
+    .progress-step.completed { background: #48bb78; }
+
+    .step { display: none; padding: 28px 32px 32px; }
+    .step.active { display: block; }
+    .step h2 { font-size: 18px; color: #2d3748; margin-bottom: 4px; }
+    .step .step-desc { color: #718096; font-size: 14px; margin-bottom: 20px; }
+
+    label { display: block; font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 6px; margin-top: 16px; }
+    label:first-of-type { margin-top: 0; }
+
+    input[type="text"], input[type="email"], input[type="tel"] {
+      width: 100%; padding: 12px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px;
+      font-size: 15px; transition: border-color 0.2s; outline: none;
+    }
+    input:focus { border-color: #667eea; }
+    input.error { border-color: #e53e3e; }
+    .error-msg { color: #e53e3e; font-size: 12px; margin-top: 4px; display: none; }
+    .error-msg.visible { display: block; }
+
+    .option-group { display: flex; gap: 12px; margin-top: 8px; }
+    .option-btn {
+      flex: 1; padding: 16px; border: 2px solid #e2e8f0; border-radius: 10px;
+      background: #fff; cursor: pointer; text-align: center; transition: all 0.2s; font-size: 15px;
+    }
+    .option-btn:hover { border-color: #667eea; background: #f7f8ff; }
+    .option-btn.selected { border-color: #667eea; background: #eef0ff; color: #667eea; font-weight: 600; }
+    .option-btn .icon { font-size: 28px; display: block; margin-bottom: 6px; }
+
+    .btn-row { display: flex; gap: 12px; margin-top: 28px; }
+    .btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: #667eea; color: #fff; }
+    .btn-primary:hover { background: #5a6fd6; }
+    .btn-primary:disabled { background: #a0aec0; cursor: not-allowed; }
+    .btn-back { background: #edf2f7; color: #4a5568; }
+    .btn-back:hover { background: #e2e8f0; }
+
+    .success-screen { display: none; padding: 48px 32px; text-align: center; }
+    .success-screen .check { font-size: 56px; margin-bottom: 16px; }
+    .success-screen h2 { color: #2d3748; margin-bottom: 8px; }
+    .success-screen p { color: #718096; font-size: 14px; }
+
+    @media (max-width: 480px) {
+      .form-container { border-radius: 12px; }
+      .step, .form-header { padding-left: 20px; padding-right: 20px; }
+      .option-group { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <div class="form-header">
+      <h1>Get Your Cash Offer</h1>
+      <p>Tell us about your property — takes less than 60 seconds</p>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-step active" data-step="1"></div>
+      <div class="progress-step" data-step="2"></div>
+      <div class="progress-step" data-step="3"></div>
+      <div class="progress-step" data-step="4"></div>
+    </div>
+
+    <!-- Step 1: Property Address -->
+    <div class="step active" data-step="1">
+      <h2>Property Address</h2>
+      <p class="step-desc">Where is the property located?</p>
+
+      <label for="address">Street Address</label>
+      <input type="text" id="address" placeholder="123 Main Street" autocomplete="street-address">
+      <div class="error-msg" id="address-error">Please enter the property address</div>
+
+      <label for="city">City</label>
+      <input type="text" id="city" placeholder="Virginia Beach" autocomplete="address-level2">
+      <div class="error-msg" id="city-error">Please enter the city</div>
+
+      <label for="state">State</label>
+      <input type="text" id="state" placeholder="VA" autocomplete="address-level1">
+      <div class="error-msg" id="state-error">Please enter the state</div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="nextStep(1)">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Owner Type -->
+    <div class="step" data-step="2">
+      <h2>Are you the homeowner?</h2>
+      <p class="step-desc">This helps us tailor the best offer for you</p>
+
+      <div class="option-group">
+        <div class="option-btn" data-field="ownerType" data-value="homeowner" onclick="selectOption(this)">
+          <span class="icon">🏠</span>
+          Homeowner
+        </div>
+        <div class="option-btn" data-field="ownerType" data-value="wholesaler" onclick="selectOption(this)">
+          <span class="icon">📋</span>
+          Wholesaler
+        </div>
+      </div>
+      <div class="error-msg" id="ownerType-error">Please select an option</div>
+
+      <div class="btn-row">
+        <button class="btn btn-back" onclick="prevStep(2)">Back</button>
+        <button class="btn btn-primary" onclick="nextStep(2)">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Property Listed -->
+    <div class="step" data-step="3">
+      <h2>Is the property currently listed?</h2>
+      <p class="step-desc">Let us know if it's on the market</p>
+
+      <div class="option-group">
+        <div class="option-btn" data-field="isListed" data-value="yes" onclick="selectOption(this)">
+          <span class="icon">✅</span>
+          Yes, it's listed
+        </div>
+        <div class="option-btn" data-field="isListed" data-value="no" onclick="selectOption(this)">
+          <span class="icon">❌</span>
+          No, not listed
+        </div>
+      </div>
+      <div class="error-msg" id="isListed-error">Please select an option</div>
+
+      <div class="btn-row">
+        <button class="btn btn-back" onclick="prevStep(3)">Back</button>
+        <button class="btn btn-primary" onclick="nextStep(3)">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Contact Info -->
+    <div class="step" data-step="4">
+      <h2>Your Contact Information</h2>
+      <p class="step-desc">We'll reach out with your cash offer</p>
+
+      <label for="fullName">Full Name</label>
+      <input type="text" id="fullName" placeholder="John Smith" autocomplete="name">
+      <div class="error-msg" id="fullName-error">Please enter your name</div>
+
+      <label for="phone">Phone Number</label>
+      <input type="tel" id="phone" placeholder="(555) 123-4567" autocomplete="tel">
+      <div class="error-msg" id="phone-error">Please enter your phone number</div>
+
+      <label for="email">Email</label>
+      <input type="email" id="email" placeholder="john@example.com" autocomplete="email">
+      <div class="error-msg" id="email-error">Please enter a valid email</div>
+
+      <div class="btn-row">
+        <button class="btn btn-back" onclick="prevStep(4)">Back</button>
+        <button class="btn btn-primary" id="submit-btn" onclick="submitForm()">Get My Cash Offer</button>
+      </div>
+    </div>
+
+    <!-- Success Screen -->
+    <div class="success-screen" id="success">
+      <div class="check">✅</div>
+      <h2>We Got Your Info!</h2>
+      <p>Our team will review your property details and reach out shortly with a cash offer.</p>
+    </div>
+  </div>
+
+  <script>
+    let currentStep = 1;
+    const formData = {};
+    let partialSaved = false;
+
+    // Track which step the user has actually filled out data for
+    let highestCompletedStep = 0;
+
+    function selectOption(el) {
+      const field = el.dataset.field;
+      const value = el.dataset.value;
+      // Deselect siblings
+      el.parentElement.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('selected'));
+      el.classList.add('selected');
+      formData[field] = value;
+      clearError(field);
+    }
+
+    function clearError(fieldId) {
+      const input = document.getElementById(fieldId);
+      const errorEl = document.getElementById(fieldId + '-error');
+      if (input) input.classList.remove('error');
+      if (errorEl) errorEl.classList.remove('visible');
+    }
+
+    function showError(fieldId) {
+      const input = document.getElementById(fieldId);
+      const errorEl = document.getElementById(fieldId + '-error');
+      if (input) input.classList.add('error');
+      if (errorEl) errorEl.classList.add('visible');
+    }
+
+    function validateStep(step) {
+      let valid = true;
+
+      if (step === 1) {
+        ['address', 'city', 'state'].forEach(field => {
+          const val = document.getElementById(field).value.trim();
+          if (!val) { showError(field); valid = false; }
+          else { clearError(field); formData[field] = val; }
+        });
+      } else if (step === 2) {
+        if (!formData.ownerType) { showError('ownerType'); valid = false; }
+      } else if (step === 3) {
+        if (!formData.isListed) { showError('isListed'); valid = false; }
+      } else if (step === 4) {
+        const name = document.getElementById('fullName').value.trim();
+        const phone = document.getElementById('phone').value.trim();
+        const email = document.getElementById('email').value.trim();
+
+        if (!name) { showError('fullName'); valid = false; } else { clearError('fullName'); formData.fullName = name; }
+        if (!phone) { showError('phone'); valid = false; } else { clearError('phone'); formData.phone = phone; }
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError('email'); valid = false; } else { clearError('email'); formData.email = email; }
+      }
+
+      return valid;
+    }
+
+    function updateProgress() {
+      document.querySelectorAll('.progress-step').forEach(el => {
+        const s = parseInt(el.dataset.step);
+        el.classList.remove('active', 'completed');
+        if (s === currentStep) el.classList.add('active');
+        else if (s < currentStep) el.classList.add('completed');
+      });
+    }
+
+    function showStep(step) {
+      document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+      const target = document.querySelector('.step[data-step="' + step + '"]');
+      if (target) target.classList.add('active');
+      currentStep = step;
+      updateProgress();
+    }
+
+    function nextStep(fromStep) {
+      if (!validateStep(fromStep)) return;
+
+      highestCompletedStep = Math.max(highestCompletedStep, fromStep);
+
+      // Save partial entry after step 1 is completed (address entered)
+      // This is the KEY fix: only save when the user has actually filled in data
+      if (fromStep === 1 && !partialSaved) {
+        savePartialEntry();
+        partialSaved = true;
+      } else if (fromStep > 1) {
+        // Update partial entry with additional data as user progresses
+        savePartialEntry();
+      }
+
+      showStep(fromStep + 1);
+    }
+
+    function prevStep(fromStep) {
+      showStep(fromStep - 1);
+    }
+
+    function savePartialEntry() {
+      // Only save if we have at least an address (non-empty real data)
+      if (!formData.address || formData.address.trim().length === 0) return;
+
+      fetch('/api/property-form/partial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          completedStep: highestCompletedStep,
+          timestamp: new Date().toISOString()
+        })
+      }).catch(() => {
+        // Silent fail — don't interrupt user experience for partial saves
+      });
+    }
+
+    async function submitForm() {
+      if (!validateStep(4)) return;
+
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+
+      try {
+        const response = await fetch('/api/property-form/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formData,
+            timestamp: new Date().toISOString()
+          })
+        });
+
+        if (response.ok) {
+          document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+          document.querySelector('.progress-bar').style.display = 'none';
+          document.getElementById('success').style.display = 'block';
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Get My Cash Offer';
+          alert('Something went wrong. Please try again.');
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Get My Cash Offer';
+        alert('Connection error. Please try again.');
+      }
+    }
+
+    // Save partial data when user leaves the page (only if they entered an address)
+    window.addEventListener('beforeunload', () => {
+      if (formData.address && formData.address.trim().length > 0) {
+        const payload = JSON.stringify({
+          ...formData,
+          completedStep: highestCompletedStep,
+          abandonedAt: currentStep,
+          timestamp: new Date().toISOString()
+        });
+        navigator.sendBeacon('/api/property-form/partial', new Blob([payload], { type: 'application/json' }));
+      }
+    });
+
+    // Clear errors on input
+    document.querySelectorAll('input').forEach(input => {
+      input.addEventListener('input', () => clearError(input.id));
+    });
+
+    // Phone formatting
+    document.getElementById('phone').addEventListener('input', function(e) {
+      let val = e.target.value.replace(/\D/g, '');
+      if (val.length >= 6) val = '(' + val.slice(0,3) + ') ' + val.slice(3,6) + '-' + val.slice(6,10);
+      else if (val.length >= 3) val = '(' + val.slice(0,3) + ') ' + val.slice(3);
+      e.target.value = val;
+    });
+  </script>
+</body>
+</html>

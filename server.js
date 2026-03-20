@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 3460;
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 
 app.use(express.json());
+app.use(express.static('public'));
 
 class LocalSEOAnalyzer {
   async analyzeWebsite(url, businessName, location) {
@@ -272,6 +273,82 @@ app.get('/', (req, res) => {
     </body>
     </html>
   `);
+});
+
+// --- Property Form Endpoints ---
+
+// In-memory store for partial entries (keyed by address to avoid duplicates)
+const partialEntries = new Map();
+
+// POST /api/property-form/partial — saves partial form data
+// Only stores entries that have at least an address filled in
+app.post('/api/property-form/partial', (req, res) => {
+  const { address, city, state, ownerType, isListed, fullName, phone, email, completedStep, abandonedAt, timestamp } = req.body;
+
+  // THE FIX: Reject blank/empty submissions entirely
+  if (!address || address.trim().length === 0) {
+    return res.status(400).json({ error: 'No address provided, skipping partial save' });
+  }
+
+  const key = (address + '|' + (city || '') + '|' + (state || '')).toLowerCase().trim();
+  const entry = {
+    address: address.trim(),
+    city: (city || '').trim(),
+    state: (state || '').trim(),
+    ownerType: ownerType || null,
+    isListed: isListed || null,
+    fullName: (fullName || '').trim() || null,
+    phone: (phone || '').trim() || null,
+    email: (email || '').trim() || null,
+    completedStep: completedStep || 1,
+    abandonedAt: abandonedAt || null,
+    isPartial: true,
+    createdAt: timestamp || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  partialEntries.set(key, entry);
+
+  console.log('[Partial Entry]', JSON.stringify(entry));
+  res.json({ ok: true });
+});
+
+// POST /api/property-form/submit — handles the complete form submission
+app.post('/api/property-form/submit', (req, res) => {
+  const { address, city, state, ownerType, isListed, fullName, phone, email, timestamp } = req.body;
+
+  // Validate required fields
+  if (!address || !city || !state || !ownerType || !isListed || !fullName || !phone || !email) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const submission = {
+    address: address.trim(),
+    city: city.trim(),
+    state: state.trim(),
+    ownerType,
+    isListed,
+    fullName: fullName.trim(),
+    phone: phone.trim(),
+    email: email.trim(),
+    isPartial: false,
+    submittedAt: timestamp || new Date().toISOString()
+  };
+
+  // Remove from partial entries since it's now a full submission
+  const key = (address + '|' + city + '|' + state).toLowerCase().trim();
+  partialEntries.delete(key);
+
+  console.log('[Full Submission]', JSON.stringify(submission));
+
+  // TODO: Send notification email, save to database, push to CRM, etc.
+  res.json({ ok: true, submission });
+});
+
+// GET /api/property-form/partials — view all partial entries (admin use)
+app.get('/api/property-form/partials', (req, res) => {
+  const entries = Array.from(partialEntries.values());
+  res.json({ count: entries.length, entries });
 });
 
 app.listen(PORT, () => {
