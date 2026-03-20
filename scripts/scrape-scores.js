@@ -307,7 +307,21 @@ async function scrapeAndUpdate() {
   }
 
   // Determine current round from ESPN
-  const espnRound = eventStatus.period || tournament.currentRound;
+  // eventStatus.period is often undefined between rounds, so derive from linescores
+  let espnRound = eventStatus.period;
+  if (!espnRound) {
+    // Find the highest completed round by checking linescores across competitors
+    let maxCompletedRound = 0;
+    for (const c of competitors) {
+      for (const ls of (c.linescores || [])) {
+        if (ls.period && ls.value !== undefined && ls.period > maxCompletedRound) {
+          maxCompletedRound = ls.period;
+        }
+      }
+    }
+    espnRound = maxCompletedRound || tournament.currentRound || 1;
+  }
+  console.log(`Current round: ${espnRound}`);
 
   // Determine cut info — count golfers without CUT/WD status
   let cutPlayerCount = tournament.cutPlayerCount;
@@ -388,12 +402,19 @@ async function scrapeAndUpdate() {
     }
 
     // Score to par (main tournament score)
-    const scoreToPar = typeof competitor.score === 'string'
-      ? competitor.score
-      : competitor.score?.displayValue || 'E';
+    // ESPN returns score as a number (-9) or string ("-9") or object ({displayValue: "-9"})
+    let scoreToPar;
+    if (typeof competitor.score === 'number') {
+      scoreToPar = competitor.score === 0 ? 'E' : (competitor.score > 0 ? `+${competitor.score}` : `${competitor.score}`);
+    } else if (typeof competitor.score === 'string') {
+      scoreToPar = competitor.score;
+    } else {
+      scoreToPar = competitor.score?.displayValue || 'E';
+    }
 
     // Today / Thru parsing
-    // Derive from linescores and status since competitor.status may be undefined
+    // ESPN's competitor.status is often undefined between rounds.
+    // We derive "today" from the most recent round's linescore.
     let today = '--';
     let thru = '--';
 
@@ -408,19 +429,24 @@ async function scrapeAndUpdate() {
       const currentRoundLS = (competitor.linescores || []).find(ls => ls.period === espnRound);
       today = currentRoundLS?.displayValue || currentRoundLS?.value?.toString() || '--';
     } else if (competitor.status?.displayValue) {
+      // Active play — status has live info
       today = competitor.status.displayValue;
     } else {
-      // No status field — derive today/thru from linescores
+      // No status field (between rounds) — use the last completed round's score
       const linescores = competitor.linescores || [];
       const currentRoundLS = linescores.find(ls => ls.period === espnRound);
-      if (currentRoundLS) {
-        if (currentRoundLS.value !== undefined) {
-          today = currentRoundLS.displayValue || currentRoundLS.value.toString();
-        }
-        // If they have a score for current round, check if they're done
-        const holesCompleted = currentRoundLS.statistics?.find?.(s => s.name === 'holesCompleted');
-        if (holesCompleted) {
-          thru = holesCompleted.value === 18 ? 'F' : holesCompleted.value.toString();
+      if (currentRoundLS && currentRoundLS.value !== undefined) {
+        // displayValue is the score-to-par for that round (e.g. "-2")
+        today = currentRoundLS.displayValue || currentRoundLS.value.toString();
+        thru = 'F'; // Round is complete if we're between rounds
+      } else {
+        // No data for current round yet — might be between rounds, show last round
+        const lastRoundLS = linescores
+          .filter(ls => ls.value !== undefined)
+          .sort((a, b) => b.period - a.period)[0];
+        if (lastRoundLS) {
+          today = lastRoundLS.displayValue || lastRoundLS.value.toString();
+          thru = 'F';
         }
       }
     }
