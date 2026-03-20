@@ -20,23 +20,29 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
-// --- Load .env ---
+// --- Load .env (local file) or use environment variables (CI) ---
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '..', '.env');
-const envFile = readFileSync(envPath, 'utf-8');
 const env = {};
-envFile.split('\n').forEach(line => {
-  const [key, ...vals] = line.split('=');
-  if (key && vals.length) env[key.trim()] = vals.join('=').trim();
-});
+try {
+  const envFile = readFileSync(envPath, 'utf-8');
+  envFile.split('\n').forEach(line => {
+    const [key, ...vals] = line.split('=');
+    if (key && vals.length) env[key.trim()] = vals.join('=').trim();
+  });
+} catch {
+  // No .env file — fall back to process.env (GitHub Actions, etc.)
+}
+// Environment variables take precedence over .env file
+const getEnv = (key) => process.env[key] || env[key];
 
 const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env.VITE_FIREBASE_APP_ID,
+  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnv('VITE_FIREBASE_APP_ID'),
 };
 
 const app = initializeApp(firebaseConfig);
