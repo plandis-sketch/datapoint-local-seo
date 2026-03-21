@@ -470,7 +470,7 @@ async function scrapeAndUpdate() {
     const points = calculatePoints(position, status, effectiveCutCount, espnRound);
 
     // Write to Firestore
-    await setDoc(doc(db, 'tournaments', tournament.id, 'golferScores', golfer.id), {
+    const scoreData = {
       name: golfer.name,
       position,
       score: scoreToPar,
@@ -482,7 +482,13 @@ async function scrapeAndUpdate() {
       teeTime,
       lastUpdated: Timestamp.now(),
       source: 'scrape',
-    });
+    };
+    await setDoc(doc(db, 'tournaments', tournament.id, 'golferScores', golfer.id), scoreData);
+
+    // Debug: log first 15 matched golfers
+    if (matched < 15) {
+      console.log(`  [${matched + 1}] ${golfer.name} (id: ${golfer.id}) => pos=${position}, score=${scoreToPar}, today=${today}, thru=${thru}, pts=${points}, status=${status}, R1=${roundScores.r1}, R2=${roundScores.r2}`);
+    }
     matched++;
   }
 
@@ -585,6 +591,34 @@ async function scrapeAndUpdate() {
   }
 
   console.log(`Updated ${matched} golfer scores (${competitors.length - matched} ESPN golfers not in our pool)`);
+
+  // DEBUG: Verify entries can find their golfer scores
+  console.log('\n--- ENTRY VERIFICATION ---');
+  const updatedScoresSnap = await getDocs(
+    collection(db, 'tournaments', tournament.id, 'golferScores')
+  );
+  const updatedScoresMap = new Map();
+  updatedScoresSnap.docs.forEach(d => updatedScoresMap.set(d.id, d.data()));
+  console.log(`Firestore has ${updatedScoresMap.size} golfer score documents`);
+
+  for (const entry of allEntries.slice(0, 3)) {
+    const picks = entry.picks || {};
+    console.log(`\nEntry: ${entry.entryLabel || entry.participantName} (id: ${entry.id})`);
+    let total = 0;
+    for (let t = 1; t <= 6; t++) {
+      const golferId = picks[`tier${t}`];
+      const score = updatedScoresMap.get(golferId);
+      if (score) {
+        console.log(`  Tier ${t}: ${score.name} (${golferId}) => pos=${score.position}, score=${score.score}, pts=${score.points}`);
+        total += score.points;
+      } else {
+        console.log(`  Tier ${t}: MISSING SCORE for id="${golferId}" — pick not found in golferScores!`);
+      }
+    }
+    console.log(`  TOTAL: ${total} points`);
+  }
+  console.log('--- END VERIFICATION ---\n');
+
   console.log('Done!');
 }
 
