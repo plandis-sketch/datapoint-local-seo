@@ -1,0 +1,6 @@
+# Python venv + caches — never commit these
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
