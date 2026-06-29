@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "google-analytics": {
+      "command": "node",
+      "args": ["./mcp/ga-server.mjs"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/absolute/path/to/service-account.json"
+      }
+    }
+  }
+}
