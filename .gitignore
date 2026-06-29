@@ -1,0 +1,15 @@
+# Dependencies (installed via `npm install`; render.yaml runs it on deploy)
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment / credentials
+.env
+.env.*
+*service-account*.json
+google-credentials*.json
+
+# OS / editor cruft
+.DS_Store
